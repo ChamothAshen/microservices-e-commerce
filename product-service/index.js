@@ -10,15 +10,18 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/ecomme
 app.use(cors());
 app.use(express.json());
 
-// MongoDB Connection
+// MongoDB Connection (optional)
+let isMongoConnected = false;
 mongoose.connect(MONGODB_URI)
     .then(() => {
         console.log('Product Service: Connected to MongoDB');
+        isMongoConnected = true;
         seedInitialProducts();
     })
     .catch(err => {
-        console.error('Product Service: MongoDB connection error:', err);
-        process.exit(1);
+        console.warn('Product Service: MongoDB not available, using in-memory storage');
+        console.warn('Error:', err.message);
+        // Continue without MongoDB - service will work with in-memory fallback
     });
 
 // Product Schema
@@ -32,6 +35,35 @@ const productSchema = new mongoose.Schema({
 });
 
 const Product = mongoose.model('Product', productSchema);
+
+// In-memory fallback storage
+let inMemoryProducts = [
+    {
+        _id: '1',
+        name: 'Wireless Headphones',
+        description: 'Premium noise-canceling wireless headphones',
+        price: 299.99,
+        stock: 50,
+        createdAt: new Date()
+    },
+    {
+        _id: '2',
+        name: 'Smart Watch',
+        description: 'Fitness tracking smart watch with heart rate monitor',
+        price: 199.99,
+        stock: 100,
+        createdAt: new Date()
+    },
+    {
+        _id: '3',
+        name: 'Laptop Stand',
+        description: 'Ergonomic aluminum laptop stand',
+        price: 49.99,
+        stock: 75,
+        createdAt: new Date()
+    }
+];
+let nextProductId = 4;
 
 // Seed initial products
 async function seedInitialProducts() {
@@ -68,8 +100,13 @@ async function seedInitialProducts() {
 // Get all products
 app.get('/', async (req, res) => {
     try {
-        const products = await Product.find({});
-        res.json(products);
+        if (mongoose.connection.readyState === 1) {
+            const products = await Product.find({});
+            res.json(products);
+        } else {
+            // In-memory fallback
+            res.json(inMemoryProducts);
+        }
     } catch (error) {
         console.error('Error fetching products:', error);
         res.status(500).json({ message: 'Internal server error' });
@@ -79,11 +116,20 @@ app.get('/', async (req, res) => {
 // Get product by ID
 app.get('/:id', async (req, res) => {
     try {
-        const product = await Product.findById(req.params.id);
-        if (!product) {
-            return res.status(404).json({ message: 'Product not found' });
+        if (mongoose.connection.readyState === 1) {
+            const product = await Product.findById(req.params.id);
+            if (!product) {
+                return res.status(404).json({ message: 'Product not found' });
+            }
+            res.json(product);
+        } else {
+            // In-memory fallback
+            const product = inMemoryProducts.find(p => p._id === req.params.id);
+            if (!product) {
+                return res.status(404).json({ message: 'Product not found' });
+            }
+            res.json(product);
         }
-        res.json(product);
     } catch (error) {
         console.error('Error fetching product:', error);
         res.status(500).json({ message: 'Internal server error' });
@@ -99,19 +145,36 @@ app.post('/', async (req, res) => {
             return res.status(400).json({ message: 'Name and price are required' });
         }
 
-        const product = new Product({
-            name,
-            description,
-            price: parseFloat(price),
-            stock: parseInt(stock) || 0
-        });
+        if (mongoose.connection.readyState === 1) {
+            const product = new Product({
+                name,
+                description,
+                price: parseFloat(price),
+                stock: parseInt(stock) || 0
+            });
 
-        const result = await product.save();
+            const result = await product.save();
 
-        res.status(201).json({
-            message: 'Product created',
-            productId: result._id
-        });
+            res.status(201).json({
+                message: 'Product created',
+                productId: result._id
+            });
+        } else {
+            // In-memory fallback
+            const newProduct = {
+                _id: String(nextProductId++),
+                name,
+                description,
+                price: parseFloat(price),
+                stock: parseInt(stock) || 0,
+                createdAt: new Date()
+            };
+            inMemoryProducts.push(newProduct);
+            res.status(201).json({
+                message: 'Product created',
+                productId: newProduct._id
+            });
+        }
     } catch (error) {
         console.error('Error creating product:', error);
         res.status(500).json({ message: 'Internal server error' });
@@ -131,13 +194,28 @@ app.put('/:id', async (req, res) => {
 
         updateData.updatedAt = new Date();
 
-        const product = await Product.findByIdAndUpdate(req.params.id, updateData, { new: true });
+        if (mongoose.connection.readyState === 1) {
+            const product = await Product.findByIdAndUpdate(req.params.id, updateData, { new: true });
 
-        if (!product) {
-            return res.status(404).json({ message: 'Product not found' });
+            if (!product) {
+                return res.status(404).json({ message: 'Product not found' });
+            }
+
+            res.json({ message: 'Product updated', product });
+        } else {
+            // In-memory fallback
+            const productIndex = inMemoryProducts.findIndex(p => p._id === req.params.id);
+            if (productIndex === -1) {
+                return res.status(404).json({ message: 'Product not found' });
+            }
+            
+            inMemoryProducts[productIndex] = {
+                ...inMemoryProducts[productIndex],
+                ...updateData
+            };
+            
+            res.json({ message: 'Product updated', product: inMemoryProducts[productIndex] });
         }
-
-        res.json({ message: 'Product updated', product });
     } catch (error) {
         console.error('Error updating product:', error);
         res.status(500).json({ message: 'Internal server error' });
@@ -147,13 +225,24 @@ app.put('/:id', async (req, res) => {
 // Delete product
 app.delete('/:id', async (req, res) => {
     try {
-        const result = await Product.findByIdAndDelete(req.params.id);
+        if (mongoose.connection.readyState === 1) {
+            const result = await Product.findByIdAndDelete(req.params.id);
 
-        if (!result) {
-            return res.status(404).json({ message: 'Product not found' });
+            if (!result) {
+                return res.status(404).json({ message: 'Product not found' });
+            }
+
+            res.json({ message: 'Product deleted' });
+        } else {
+            // In-memory fallback
+            const productIndex = inMemoryProducts.findIndex(p => p._id === req.params.id);
+            if (productIndex === -1) {
+                return res.status(404).json({ message: 'Product not found' });
+            }
+            
+            inMemoryProducts.splice(productIndex, 1);
+            res.json({ message: 'Product deleted' });
         }
-
-        res.json({ message: 'Product deleted' });
     } catch (error) {
         console.error('Error deleting product:', error);
         res.status(500).json({ message: 'Internal server error' });

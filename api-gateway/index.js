@@ -1,7 +1,9 @@
 const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const cors = require('cors');
-require('dotenv').config();
+
+// Suppress util._extend deprecation warning
+process.noDeprecation = true;
 
 const app = express();
 const PORT = process.env.PORT || 8000;
