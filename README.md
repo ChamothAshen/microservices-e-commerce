@@ -4,10 +4,13 @@ A job-ready Microservices implementation for a DevOps portfolio.
 
 ## Architecture
 - **API Gateway** (Port 8000): Express + `http-proxy-middleware`
-- **Auth Service** (Port 5001): Express + JWT
-- **Product Service** (Port 5002): Express + JSON storage
-- **Order Service** (Port 5003): Express + In-memory storage
+- **Auth Service** (Port 5001): Express + JWT + MongoDB
+- **Product Service** (Port 5002): Express + MongoDB
+- **Order Service** (Port 5003): Express + MongoDB
 - **Frontend** (Port 3000): Next.js 14 (App Router)
+- **Database**: MongoDB Atlas (Cloud)
+
+**Note**: When running in Docker, services communicate using Docker network names (e.g., `http://auth-service:5001`), not `localhost`.
 
 ## 🚀 How to Run
 

@@ -11,10 +11,15 @@ const PORT = process.env.PORT || 8000;
 app.use(cors());
 // app.use(express.json()); // Removed to avoid conflict with proxy
 
-// Service URLs (in production these would be env vars)
-const AUTH_SERVICE_URL = 'http://localhost:5001';
-const PRODUCT_SERVICE_URL = 'http://localhost:5002';
-const ORDER_SERVICE_URL = 'http://localhost:5003';
+// Service URLs - use environment variables for Docker/production
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:5001';
+const PRODUCT_SERVICE_URL = process.env.PRODUCT_SERVICE_URL || 'http://localhost:5002';
+const ORDER_SERVICE_URL = process.env.ORDER_SERVICE_URL || 'http://localhost:5003';
+
+console.log('Service URLs configured:');
+console.log('AUTH:', AUTH_SERVICE_URL);
+console.log('PRODUCT:', PRODUCT_SERVICE_URL);
+console.log('ORDER:', ORDER_SERVICE_URL);
 
 // Proxy endpoints
 app.use('/auth', createProxyMiddleware({

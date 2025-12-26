@@ -50,6 +50,11 @@ app.get('/', async (req, res) => {
 app.get('/:id', async (req, res) => {
     try {
         if (ordersCollection) {
+            // Validate ObjectId format
+            if (!ObjectId.isValid(req.params.id)) {
+                return res.status(400).json({ message: 'Invalid order ID format' });
+            }
+            
             const order = await ordersCollection.findOne({ _id: new ObjectId(req.params.id) });
             if (!order) {
                 return res.status(404).json({ message: 'Order not found' });
@@ -128,6 +133,11 @@ app.patch('/:id/status', async (req, res) => {
         }
 
         if (ordersCollection) {
+            // Validate ObjectId format
+            if (!ObjectId.isValid(req.params.id)) {
+                return res.status(400).json({ message: 'Invalid order ID format' });
+            }
+            
             const result = await ordersCollection.updateOne(
                 { _id: new ObjectId(req.params.id) },
                 { 
