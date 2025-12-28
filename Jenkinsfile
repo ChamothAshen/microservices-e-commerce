@@ -3,7 +3,7 @@ pipeline {
     
     environment {
         // GitHub Repository
-        GIT_REPO = 'https://github.com/YOUR_USERNAME/microservices-e-commerce.git'
+        GIT_REPO = 'https://github.com/ChamothAshen/microservices-e-commerce.git'
         GIT_BRANCH = 'main'
         
         // AWS Configuration (update later)
