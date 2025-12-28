@@ -82,7 +82,7 @@ pipeline {
                 stage('API Gateway') {
                     steps {
                         dir('api-gateway') {
-                            bat 'npm ci'
+                            bat 'npm install'
                             bat 'npm test || echo "⚠️ No tests configured"'
                         }
                     }
@@ -91,7 +91,7 @@ pipeline {
                 stage('Auth Service') {
                     steps {
                         dir('auth-service') {
-                            bat 'npm ci'
+                            bat 'npm install'
                             bat 'npm test || echo "⚠️ No tests configured"'
                         }
                     }
@@ -100,7 +100,7 @@ pipeline {
                 stage('Product Service') {
                     steps {
                         dir('product-service') {
-                            bat 'npm ci'
+                            bat 'npm install'
                             bat 'npm test || echo "⚠️ No tests configured"'
                         }
                     }
@@ -109,7 +109,7 @@ pipeline {
                 stage('Order Service') {
                     steps {
                         dir('order-service') {
-                            bat 'npm ci'
+                            bat 'npm install'
                             bat 'npm test || echo "⚠️ No tests configured"'
                         }
                     }
