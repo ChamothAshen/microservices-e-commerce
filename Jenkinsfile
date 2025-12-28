@@ -101,70 +101,70 @@ pipeline {
                     steps {
                         dir('product-service') {
                             bat 'npm ci'
-                            bat 'npm test || echo "⚠️ No tests configured"'('order-service') {
+                            bat 'npm test || echo "⚠️ No tests configured"'
                         }
-                    }t || echo "⚠️ No tests configured"'
+                    }
                 }
 
                 stage('Order Service') {
-                stage('Order Service') {
                     steps {
                         dir('order-service') {
-                            bat 'npm ci'        stage('🐳 Build Docker Images') {
+                            bat 'npm ci'
                             bat 'npm test || echo "⚠️ No tests configured"'
                         }
-                    }ipt {
-                }services = [
-            }',
-        },
-e',
+                    }
+                }
+            }
+        }
+
         stage('🐳 Build Docker Images') {
             when { branch 'main' }
             steps {
-                script {ervices.each { service ->
-                    def services = [                        echo "🔨 Building ${service}"
+                script {
+                    def services = [
                         'api-gateway',
-                        'auth-service',}:${BUILD_NUMBER} ./${service}
-                        'product-service',ker tag ${service}:${BUILD_NUMBER} ${service}:latest
-                        'order-service',
-                        'frontend-client'
+                        'auth-service',
+                        'product-service',
+                        'order-service'
                     ]
-"✅ Docker images built"
+
                     services.each { service ->
                         echo "🔨 Building ${service}"
                         bat """
-                            docker build -t ${service}:${BUILD_NUMBER} ./${service}tage('🧪 Docker Compose Validation') {
-                            docker tag ${service}:${BUILD_NUMBER} ${service}:latest            when { branch 'main' }
+                            docker build -t ${service}:${BUILD_NUMBER} ./${service}
+                            docker tag ${service}:${BUILD_NUMBER} ${service}:latest
                         """
                     }
-                } docker-compose -f docker-compose.yml config
-                echo "✅ Docker images built"o Docker Compose file is valid
+                }
+                echo "✅ Docker images built"
             }
         }
 
         stage('🧪 Docker Compose Validation') {
             when { branch 'main' }
-            steps {ost {
-                bat '''        success {
-                    docker-compose -f docker-compose.yml config  echo '✅ ========================================='
-                    echo Docker Compose file is valid'✅ Pipeline completed successfully!'
+            steps {
+                bat '''
+                    docker-compose -f docker-compose.yml config
+                    echo Docker Compose file is valid
                 '''
             }
-        }========'
+        }
     }
 
-    post {ailure {
-        success {            echo '❌ ========================================='
-            echo '✅ =========================================''❌ Pipeline failed!'
+    post {
+        success {
+            echo '✅ ========================================='
             echo '✅ Pipeline completed successfully!'
             echo "🔖 Commit: ${env.GIT_COMMIT_SHORT}"
             echo "👤 Author: ${env.GIT_AUTHOR}"
-            echo '✅ ========================================='lways {
-        }            bat 'docker system prune -f || echo Cleanup done'
+            echo '✅ ========================================='
+        }
 
         failure {
             echo '❌ ========================================='
-            echo '❌ Pipeline failed!'            echo '❌ ========================================='        }
+            echo '❌ Pipeline failed!'
+            echo '❌ ========================================='
+        }
 
         always {
             bat 'docker system prune -f || echo Cleanup done'
