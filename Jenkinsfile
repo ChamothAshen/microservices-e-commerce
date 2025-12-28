@@ -118,7 +118,6 @@ pipeline {
         }
 
         stage('🐳 Build Docker Images') {
-            when { branch 'main' }
             steps {
                 script {
                     def services = [
@@ -141,7 +140,6 @@ pipeline {
         }
 
         stage('🧪 Docker Compose Validation') {
-            when { branch 'main' }
             steps {
                 bat '''
                     docker-compose -f docker-compose.yml config
