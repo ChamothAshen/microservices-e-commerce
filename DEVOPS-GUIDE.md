@@ -4,12 +4,13 @@
 This guide will help you transform your microservices e-commerce application into a production-ready DevOps project using AWS Free Tier services.
 
 **Current Architecture:**
-- **Frontend:** Next.js application
-- **API Gateway:** Node.js gateway service
+- **Frontend:** Next.js application (Port 3000)
+- **API Gateway:** Node.js gateway service (Port 8000)
 - **Microservices:**
-  - Auth Service (authentication & user management)
-  - Product Service (product catalog)
-  - Order Service (order management)
+  - Auth Service (authentication & user management) - Port 5001
+  - Product Service (product catalog) - Port 5002
+  - Order Service (order management) - Port 5003
+- **Database:** MongoDB Atlas (Cloud)
 
 ---
 
@@ -75,6 +76,8 @@ kubectl cluster-info
 
 ### Step 1.1: Create Dockerfiles for Each Service
 
+**✅ ALREADY COMPLETE** - Your Dockerfiles are already created and working!
+
 **Create `api-gateway/Dockerfile`:**
 ```dockerfile
 FROM node:18-alpine
@@ -82,7 +85,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --only=production
 COPY . .
-EXPOSE 3000
+EXPOSE 8000
 CMD ["node", "index.js"]
 ```
 
@@ -93,7 +96,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --only=production
 COPY . .
-EXPOSE 3001
+EXPOSE 5001
 CMD ["node", "index.js"]
 ```
 
@@ -104,7 +107,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --only=production
 COPY . .
-EXPOSE 3002
+EXPOSE 5002
 CMD ["node", "index.js"]
 ```
 
@@ -115,7 +118,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --only=production
 COPY . .
-EXPOSE 3003
+EXPOSE 5003
 CMD ["node", "index.js"]
 ```
 
@@ -135,26 +138,27 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/next.config.mjs ./
 RUN npm ci --only=production
-EXPOSE 3004
+EXPOSE 3000
 CMD ["npm", "start"]
 ```
 
 ### Step 1.2: Create Docker Compose for Local Development
 
-**Create `docker-compose.yml` in root:**
-```yaml
-version: '3.8'
+**✅ ALREADY COMPLETE** - Your docker-compose.yml is already working!
 
+**Your working `docker-compose.yml`:**
+```yaml
 services:
   api-gateway:
     build: ./api-gateway
     ports:
-      - "3000:3000"
+      - "8000:8000"
     environment:
       - NODE_ENV=development
-      - AUTH_SERVICE_URL=http://auth-service:3001
-      - PRODUCT_SERVICE_URL=http://product-service:3002
-      - ORDER_SERVICE_URL=http://order-service:3003
+      - PORT=8000
+      - AUTH_SERVICE_URL=http://auth-service:5001
+      - PRODUCT_SERVICE_URL=http://product-service:5002
+      - ORDER_SERVICE_URL=http://order-service:5003
     depends_on:
       - auth-service
       - product-service
@@ -165,41 +169,44 @@ services:
   auth-service:
     build: ./auth-service
     ports:
-      - "3001:3001"
+      - "5001:5001"
     environment:
       - NODE_ENV=development
-    volumes:
-      - ./auth-service/users.json:/app/users.json
+      - PORT=5001
+      - JWT_SECRET=supersecretkey
+      - MONGODB_URI=mongodb+srv://it22577542_db_user:User123@cluster0.lysvtbc.mongodb.net/ecommerce?appName=Cluster0
     networks:
       - microservices-network
 
   product-service:
     build: ./product-service
     ports:
-      - "3002:3002"
+      - "5002:5002"
     environment:
       - NODE_ENV=development
-    volumes:
-      - ./product-service/products.json:/app/products.json
+      - PORT=5002
+      - MONGODB_URI=mongodb+srv://it22577542_db_user:User123@cluster0.lysvtbc.mongodb.net/ecommerce?appName=Cluster0
     networks:
       - microservices-network
 
   order-service:
     build: ./order-service
     ports:
-      - "3003:3003"
+      - "5003:5003"
     environment:
       - NODE_ENV=development
+      - PORT=5003
+      - MONGODB_URI=mongodb+srv://it22577542_db_user:User123@cluster0.lysvtbc.mongodb.net/ecommerce?appName=Cluster0
     networks:
       - microservices-network
 
-  frontend:
+  frontend-client:
     build: ./frontend-client
     ports:
-      - "3004:3004"
+      - "3000:3000"
     environment:
       - NODE_ENV=development
-      - NEXT_PUBLIC_API_URL=http://localhost:3000
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
     depends_on:
       - api-gateway
     networks:
@@ -227,18 +234,22 @@ coverage
 
 ### Step 1.4: Test Docker Setup
 
+**✅ YOUR SERVICES ARE RUNNING!**
+
 ```bash
-# Build all images
-docker-compose build
-
-# Run all services
-docker-compose up -d
-
 # Check running containers
 docker-compose ps
 
 # View logs
 docker-compose logs -f
+
+# Test endpoints
+curl http://localhost:8000
+curl http://localhost:8000/products
+curl http://localhost:8000/auth/health
+
+# Access frontend
+# Open browser: http://localhost:3000
 
 # Stop all services
 docker-compose down
@@ -858,7 +869,7 @@ terraform destroy
       "image": "YOUR_ECR_REGISTRY/api-gateway:latest",
       "portMappings": [
         {
-          "containerPort": 3000,
+          "containerPort": 8000,
           "protocol": "tcp"
         }
       ],
@@ -869,15 +880,15 @@ terraform destroy
         },
         {
           "name": "AUTH_SERVICE_URL",
-          "value": "http://auth-service:3001"
+          "value": "http://auth-service:5001"
         },
         {
           "name": "PRODUCT_SERVICE_URL",
-          "value": "http://product-service:3002"
+          "value": "http://product-service:5002"
         },
         {
           "name": "ORDER_SERVICE_URL",
-          "value": "http://order-service:3003"
+          "value": "http://order-service:5003"
         }
       ],
       "logConfiguration": {
@@ -944,16 +955,18 @@ spec:
       - name: api-gateway
         image: YOUR_ECR_REGISTRY/api-gateway:latest
         ports:
-        - containerPort: 3000
+        - containerPort: 8000
         env:
         - name: NODE_ENV
           value: "production"
+        - name: PORT
+          value: "8000"
         - name: AUTH_SERVICE_URL
-          value: "http://auth-service:3001"
+          value: "http://auth-service:5001"
         - name: PRODUCT_SERVICE_URL
-          value: "http://product-service:3002"
+          value: "http://product-service:5002"
         - name: ORDER_SERVICE_URL
-          value: "http://order-service:3003"
+          value: "http://order-service:5003"
         resources:
           requests:
             memory: "256Mi"
@@ -972,8 +985,8 @@ spec:
   selector:
     app: api-gateway
   ports:
-  - port: 3000
-    targetPort: 3000
+  - port: 8000
+    targetPort: 8000
     nodePort: 30000
 ```
 
@@ -998,10 +1011,19 @@ spec:
       - name: auth-service
         image: YOUR_ECR_REGISTRY/auth-service:latest
         ports:
-        - containerPort: 3001
+        - containerPort: 5001
         env:
         - name: NODE_ENV
           value: "production"
+        - name: PORT
+          value: "5001"
+        - name: JWT_SECRET
+          value: "supersecretkey"
+        - name: MONGODB_URI
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-secret
+              key: connection-string
         resources:
           requests:
             memory: "256Mi"
@@ -1020,8 +1042,8 @@ spec:
   selector:
     app: auth-service
   ports:
-  - port: 3001
-    targetPort: 3001
+  - port: 5001
+    targetPort: 5001
 ```
 
 **Create `k8s/product-service-deployment.yaml`:**
@@ -1045,10 +1067,17 @@ spec:
       - name: product-service
         image: YOUR_ECR_REGISTRY/product-service:latest
         ports:
-        - containerPort: 3002
+        - containerPort: 5002
         env:
         - name: NODE_ENV
           value: "production"
+        - name: PORT
+          value: "5002"
+        - name: MONGODB_URI
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-secret
+              key: connection-string
         resources:
           requests:
             memory: "256Mi"
@@ -1067,8 +1096,8 @@ spec:
   selector:
     app: product-service
   ports:
-  - port: 3002
-    targetPort: 3002
+  - port: 5002
+    targetPort: 5002
 ```
 
 **Create `k8s/order-service-deployment.yaml`:**
@@ -1092,10 +1121,17 @@ spec:
       - name: order-service
         image: YOUR_ECR_REGISTRY/order-service:latest
         ports:
-        - containerPort: 3003
+        - containerPort: 5003
         env:
         - name: NODE_ENV
           value: "production"
+        - name: PORT
+          value: "5003"
+        - name: MONGODB_URI
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-secret
+              key: connection-string
         resources:
           requests:
             memory: "256Mi"
@@ -1114,8 +1150,8 @@ spec:
   selector:
     app: order-service
   ports:
-  - port: 3003
-    targetPort: 3003
+  - port: 5003
+    targetPort: 5003
 ```
 
 **Create `k8s/frontend-deployment.yaml`:**
@@ -1139,7 +1175,7 @@ spec:
       - name: frontend
         image: YOUR_ECR_REGISTRY/frontend-client:latest
         ports:
-        - containerPort: 3004
+        - containerPort: 3000
         env:
         - name: NODE_ENV
           value: "production"
@@ -1163,9 +1199,9 @@ spec:
   selector:
     app: frontend
   ports:
-  - port: 3004
-    targetPort: 3004
-    nodePort: 30004
+  - port: 3000
+    targetPort: 3000
+    nodePort: 30001
 ```
 
 **Deploy to Local Kubernetes:**
@@ -1187,7 +1223,7 @@ kubectl get services -n microservices
 
 # Access services
 # API Gateway: http://localhost:30000
-# Frontend: http://localhost:30004
+# Frontend: http://localhost:30001
 
 # View logs
 kubectl logs -f deployment/api-gateway -n microservices
@@ -1256,7 +1292,7 @@ if ($action -eq "apply") {
     
     Write-Host "\nAccess URLs:" -ForegroundColor Cyan
     Write-Host "API Gateway: http://localhost:30000"
-    Write-Host "Frontend: http://localhost:30004"
+    Write-Host "Frontend: http://localhost:30001"
 } elseif ($action -eq "delete") {
     kubectl delete namespace microservices
     Write-Host "All resources deleted!" -ForegroundColor Red
