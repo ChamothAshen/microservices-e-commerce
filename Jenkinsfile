@@ -162,9 +162,7 @@ pipeline {
         }
 
         always {
-            node {
-                bat 'docker system prune -f || echo Cleanup done'
-            }
+            bat 'docker system prune -f || echo Cleanup done'
         }
     }
 }
