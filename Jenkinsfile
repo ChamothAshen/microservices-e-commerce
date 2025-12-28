@@ -83,11 +83,7 @@ pipeline {
                     steps {
                         dir('api-gateway') {
                             bat 'npm install'
-                            bat '''
-                                npm test
-                                if errorlevel 1 echo ⚠️ No tests configured
-                                exit /b 0
-                            '''
+                            bat 'npm run test --if-present'
                         }
                     }
                 }
@@ -96,11 +92,7 @@ pipeline {
                     steps {
                         dir('auth-service') {
                             bat 'npm install'
-                            bat '''
-                                npm test
-                                if errorlevel 1 echo ⚠️ No tests configured
-                                exit /b 0
-                            '''
+                            bat 'npm run test --if-present'
                         }
                     }
                 }
@@ -109,11 +101,7 @@ pipeline {
                     steps {
                         dir('product-service') {
                             bat 'npm install'
-                            bat '''
-                                npm test
-                                if errorlevel 1 echo ⚠️ No tests configured
-                                exit /b 0
-                            '''
+                            bat 'npm run test --if-present'
                         }
                     }
                 }
@@ -122,11 +110,7 @@ pipeline {
                     steps {
                         dir('order-service') {
                             bat 'npm install'
-                            bat '''
-                                npm test
-                                if errorlevel 1 echo ⚠️ No tests configured
-                                exit /b 0
-                            '''
+                            bat 'npm run test --if-present'
                         }
                     }
                 }
