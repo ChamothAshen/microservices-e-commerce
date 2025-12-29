@@ -197,7 +197,8 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY_FILE')]) {
                     script {
                         // Fix permissions for Windows (OpenSSH checks strictly)
-                        bat 'icacls "%SSH_KEY_FILE%" /inheritance:r /grant:r "%USERNAME%":F'
+                        // Use whoami to get the correct user dynamically (handles SYSTEM/service accounts correctly)
+                        bat 'for /f "delims=" %%a in (\'whoami\') do icacls "%SSH_KEY_FILE%" /inheritance:r /grant:r "%%a":F'
                         
                         // 1. Copy the production compose file to the server
                         bat "scp -i \"%SSH_KEY_FILE%\" -o StrictHostKeyChecking=no docker-compose.prod.yml ubuntu@${EC2_IP}:/home/ubuntu/docker-compose.yml"
