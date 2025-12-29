@@ -165,21 +165,27 @@ pipeline {
                         string(credentialsId: 'aws-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
                         string(credentialsId: 'aws-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY')
                     ]) {
-                        // 1. Create ECR repository if it doesn't exist
+                        // Note: Make sure ECR repository 'auth-service' exists in AWS Console
+                        // Or create it using: aws ecr create-repository --repository-name auth-service --region eu-north-1
+                        
+                        // 1. Get ECR login token and login to Docker
                         bat """
-                            aws ecr describe-repositories --repository-names ${IMAGE_NAME} --region ${AWS_REGION} 2>nul || aws ecr create-repository --repository-name ${IMAGE_NAME} --region ${AWS_REGION}
+                            docker run --rm ^
+                              -e AWS_ACCESS_KEY_ID=%AWS_ACCESS_KEY_ID% ^
+                              -e AWS_SECRET_ACCESS_KEY=%AWS_SECRET_ACCESS_KEY% ^
+                              -e AWS_DEFAULT_REGION=${AWS_REGION} ^
+                              amazon/aws-cli ecr get-login-password --region ${AWS_REGION} > ecr_token.txt
                         """
                         
-                        // 2. Login to ECR
                         bat """
-                            for /f "tokens=*" %%i in ('aws ecr get-login-password --region ${AWS_REGION}') do set ECR_PASSWORD=%%i
-                            echo %ECR_PASSWORD% | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                            type ecr_token.txt | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                            del ecr_token.txt
                         """
                         
-                        // 3. Tag
+                        // 2. Tag
                         bat "docker tag ${IMAGE_NAME}:latest ${ECR_REGISTRY}/${IMAGE_NAME}:latest"
                         
-                        // 4. Push
+                        // 3. Push
                         bat "docker push ${ECR_REGISTRY}/${IMAGE_NAME}:latest"
                     }
                 }
