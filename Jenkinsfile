@@ -194,19 +194,40 @@ pipeline {
  
         stage('🚀 Deploy to EC2') {
             steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY_FILE')]) {
+                withCredentials([
+                    sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY_FILE'),
+                    string(credentialsId: 'aws-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'aws-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
                     script {
-                        // Fix permissions for Windows (OpenSSH checks strictly)
-                        // Use whoami to get the correct user dynamically (handles SYSTEM/service accounts correctly)
+                        // 1. Generate ECR Token LOCALLY to avoid needing AWS CLI on the remote server
+                        // We use the same amazon/aws-cli image as the push stage
+                        bat """
+                            docker run --rm ^
+                              -e AWS_ACCESS_KEY_ID=%AWS_ACCESS_KEY_ID% ^
+                              -e AWS_SECRET_ACCESS_KEY=%AWS_SECRET_ACCESS_KEY% ^
+                              -e AWS_DEFAULT_REGION=${AWS_REGION} ^
+                              amazon/aws-cli ecr get-login-password --region ${AWS_REGION} > ecr_token.txt
+                        """
+                        
+                        // Fix permissions for SSH key (Windows execution context)
                         bat 'for /f "delims=" %%a in (\'whoami\') do icacls "%SSH_KEY_FILE%" /inheritance:r /grant:r "%%a":F'
                         
-                        // 1. Copy the production compose file to the server
+                        // 2. Copy files (Docker Compose + Token) to the server
+                        // We copy the token file so we don't have to pass it via command line arguments
                         bat "scp -i \"%SSH_KEY_FILE%\" -o StrictHostKeyChecking=no docker-compose.prod.yml ubuntu@${EC2_IP}:/home/ubuntu/docker-compose.yml"
+                        bat "scp -i \"%SSH_KEY_FILE%\" -o StrictHostKeyChecking=no ecr_token.txt ubuntu@${EC2_IP}:/home/ubuntu/ecr_token.txt"
                         
-                        // 2. SSH into server and restart the service
+                        // 3. SSH into server and Deploy
+                        // - Export variables needed for docker-compose (Account ID/Region)
+                        // - Login to Docker using the copied token file
+                        // - Pull and restart the service
                         bat """
-                            ssh -i \"%SSH_KEY_FILE%\" -o StrictHostKeyChecking=no ubuntu@${EC2_IP} "export AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID} && export AWS_REGION=${AWS_REGION} && export MONGODB_URI=mongodb+srv://it22577542_db_user:User123@cluster0.lysvtbc.mongodb.net/ecommerce?appName=Cluster0 && export JWT_SECRET=supersecretkey && aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY} && docker-compose pull auth-service && docker-compose up -d --no-deps auth-service && docker image prune -f"
+                            ssh -i \"%SSH_KEY_FILE%\" -o StrictHostKeyChecking=no ubuntu@${EC2_IP} "export AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID} && export AWS_REGION=${AWS_REGION} && export MONGODB_URI=mongodb+srv://it22577542_db_user:User123@cluster0.lysvtbc.mongodb.net/ecommerce?appName=Cluster0 && export JWT_SECRET=supersecretkey && cat ecr_token.txt | docker login --username AWS --password-stdin ${ECR_REGISTRY} && rm ecr_token.txt && docker-compose pull auth-service && docker-compose up -d --no-deps auth-service && docker image prune -f"
                         """
+                        
+                        // Cleanup local token
+                        bat "del ecr_token.txt"
                     }
                 }
             }
