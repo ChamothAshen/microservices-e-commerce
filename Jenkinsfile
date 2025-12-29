@@ -161,14 +161,27 @@ pipeline {
             steps {
                 script {
                     // Login to AWS ECR using credentials
-                    withCredentials([usernamePassword(credentialsId: 'aws-access-key-id', passwordVariable: 'AWS_SECRET_ACCESS_KEY', usernameVariable: 'AWS_ACCESS_KEY_ID')]) {
-                        // 1. Login
-                        bat "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
+                    withCredentials([[
+                        $class: 'AmazonWebServicesCredentialsBinding',
+                        credentialsId: 'aws-credentials',
+                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                    ]]) {
+                        // 1. Create ECR repository if it doesn't exist
+                        bat """
+                            aws ecr describe-repositories --repository-names ${IMAGE_NAME} --region ${AWS_REGION} 2>nul || aws ecr create-repository --repository-name ${IMAGE_NAME} --region ${AWS_REGION}
+                        """
                         
-                        // 2. Tag
+                        // 2. Login to ECR
+                        bat """
+                            for /f "tokens=*" %%i in ('aws ecr get-login-password --region ${AWS_REGION}') do set ECR_PASSWORD=%%i
+                            echo %ECR_PASSWORD% | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                        """
+                        
+                        // 3. Tag
                         bat "docker tag ${IMAGE_NAME}:latest ${ECR_REGISTRY}/${IMAGE_NAME}:latest"
                         
-                        // 3. Push
+                        // 4. Push
                         bat "docker push ${ECR_REGISTRY}/${IMAGE_NAME}:latest"
                     }
                 }
