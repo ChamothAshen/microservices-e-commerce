@@ -189,19 +189,19 @@ pipeline {
                         bat "docker push ${ECR_REGISTRY}/${IMAGE_NAME}:latest"
                     }
                 }
-            }
+            }   
         }
-
+ 
         stage('🚀 Deploy to EC2') {
             steps {
-                sshagent(['ec2-ssh-key']) {
+                withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY_FILE')]) {
                     script {
                         // 1. Copy the production compose file to the server
-                        bat "scp -o StrictHostKeyChecking=no docker-compose.prod.yml ubuntu@${EC2_IP}:/home/ubuntu/docker-compose.yml"
+                        bat "scp -i \"%SSH_KEY_FILE%\" -o StrictHostKeyChecking=no docker-compose.prod.yml ubuntu@${EC2_IP}:/home/ubuntu/docker-compose.yml"
                         
                         // 2. SSH into server and restart the service
                         bat """
-                            ssh -o StrictHostKeyChecking=no ubuntu@${EC2_IP} "export AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID} && export AWS_REGION=${AWS_REGION} && export MONGODB_URI=mongodb+srv://it22577542_db_user:User123@cluster0.lysvtbc.mongodb.net/ecommerce?appName=Cluster0 && export JWT_SECRET=supersecretkey && aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY} && docker-compose pull auth-service && docker-compose up -d --no-deps auth-service && docker image prune -f"
+                            ssh -i \"%SSH_KEY_FILE%\" -o StrictHostKeyChecking=no ubuntu@${EC2_IP} "export AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID} && export AWS_REGION=${AWS_REGION} && export MONGODB_URI=mongodb+srv://it22577542_db_user:User123@cluster0.lysvtbc.mongodb.net/ecommerce?appName=Cluster0 && export JWT_SECRET=supersecretkey && aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY} && docker-compose pull auth-service && docker-compose up -d --no-deps auth-service && docker image prune -f"
                         """
                     }
                 }
