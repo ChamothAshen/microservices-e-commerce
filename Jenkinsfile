@@ -161,12 +161,10 @@ pipeline {
             steps {
                 script {
                     // Login to AWS ECR using credentials
-                    withCredentials([[
-                        $class: 'AmazonWebServicesCredentialsBinding',
-                        credentialsId: 'aws-credentials',
-                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                    ]]) {
+                    withCredentials([
+                        string(credentialsId: 'aws-access-key-id', variable: 'AWS_ACCESS_KEY_ID'),
+                        string(credentialsId: 'aws-secret-access-key', variable: 'AWS_SECRET_ACCESS_KEY')
+                    ]) {
                         // 1. Create ECR repository if it doesn't exist
                         bat """
                             aws ecr describe-repositories --repository-names ${IMAGE_NAME} --region ${AWS_REGION} 2>nul || aws ecr create-repository --repository-name ${IMAGE_NAME} --region ${AWS_REGION}
