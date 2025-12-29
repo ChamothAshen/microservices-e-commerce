@@ -1,0 +1,16 @@
+version: '3'
+services:
+  auth-service:
+    image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/auth-service:latest
+    ports:
+      - "5001:5001"
+    environment:
+      - PORT=5001
+      - JWT_SECRET=${JWT_SECRET}
+      - MONGODB_URI=${MONGODB_URI}
+    networks:
+      - microservices-network
+
+networks:
+  microservices-network:
+    driver: bridge

@@ -4,6 +4,15 @@ pipeline {
     environment {
         GIT_REPO   = 'https://github.com/ChamothAshen/microservices-e-commerce.git'
         GIT_BRANCH = 'main'
+
+        // --- CONFIGURATION: FILL THESE IN ---
+        AWS_ACCOUNT_ID = '526801978255'   // e.g. 123456789012
+        AWS_REGION     = 'eu-north-1'             // e.g. us-east-1
+        EC2_IP         = '13.60.187.103'    // e.g. 54.123.45.67
+        
+        // --- AUTOMATIC VARIABLES ---
+        ECR_REGISTRY   = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        IMAGE_NAME     = "auth-service"
     }
 
     stages {
@@ -145,6 +154,40 @@ pipeline {
                     docker-compose -f docker-compose.yml config
                     echo Docker Compose file is valid
                 '''
+            }
+        }
+
+        stage('☁️ Push to AWS ECR') {
+            steps {
+                script {
+                    // Login to AWS ECR using credentials
+                    withCredentials([usernamePassword(credentialsId: 'aws-access-key-id', passwordVariable: 'AWS_SECRET_ACCESS_KEY', usernameVariable: 'AWS_ACCESS_KEY_ID')]) {
+                        // 1. Login
+                        bat "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
+                        
+                        // 2. Tag
+                        bat "docker tag ${IMAGE_NAME}:latest ${ECR_REGISTRY}/${IMAGE_NAME}:latest"
+                        
+                        // 3. Push
+                        bat "docker push ${ECR_REGISTRY}/${IMAGE_NAME}:latest"
+                    }
+                }
+            }
+        }
+
+        stage('🚀 Deploy to EC2') {
+            steps {
+                sshagent(['ec2-ssh-key']) {
+                    script {
+                        // 1. Copy the production compose file to the server
+                        bat "scp -o StrictHostKeyChecking=no docker-compose.prod.yml ubuntu@${EC2_IP}:/home/ubuntu/docker-compose.yml"
+                        
+                        // 2. SSH into server and restart the service
+                        bat """
+                            ssh -o StrictHostKeyChecking=no ubuntu@${EC2_IP} "export AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID} && export AWS_REGION=${AWS_REGION} && export MONGODB_URI=mongodb+srv://it22577542_db_user:User123@cluster0.lysvtbc.mongodb.net/ecommerce?appName=Cluster0 && export JWT_SECRET=supersecretkey && aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY} && docker-compose pull auth-service && docker-compose up -d --no-deps auth-service && docker image prune -f"
+                        """
+                    }
+                }
             }
         }
     }
